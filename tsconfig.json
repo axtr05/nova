@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/frontend/components/*"],
+      "@/hooks/*": ["./src/frontend/hooks/*"]
     }
   },
   "include": [
