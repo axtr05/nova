@@ -11,6 +11,7 @@ import { CalendarEvent, ViewType } from "@/types";
 import { PlannerAction } from "@/backend/types/actions";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
+import { ProtectedRoute } from "@/frontend/components/ProtectedRoute";
 
 const COMPLETED_EVENTS_STORAGE_KEY = "nova-completed-events-ids";
 
@@ -203,53 +204,55 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950/60 overflow-hidden relative">
-      {/* Dynamic glow overlays behind main content panels */}
-      <div className="absolute top-0 left-1/4 h-[300px] w-[500px] bg-violet-900/10 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute bottom-10 right-1/4 h-[400px] w-[600px] bg-indigo-900/5 rounded-full blur-3xl pointer-events-none -z-10" />
+    <ProtectedRoute>
+      <div className="flex flex-col h-screen bg-slate-950/60 overflow-hidden relative">
+        {/* Dynamic glow overlays behind main content panels */}
+        <div className="absolute top-0 left-1/4 h-[300px] w-[500px] bg-violet-900/10 rounded-full blur-3xl pointer-events-none -z-10" />
+        <div className="absolute bottom-10 right-1/4 h-[400px] w-[600px] bg-indigo-900/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Main Top Header */}
-      <Navbar
-        view={view}
-        setView={setView}
-        currentDate={currentDate}
-        setCurrentDate={setCurrentDate}
-      />
-
-      {/* Central Content Area */}
-      <div className="flex-1 flex min-h-0 relative">
-        {/* Calendar Grid Section */}
-        <CalendarGrid
+        {/* Main Top Header */}
+        <Navbar
           view={view}
+          setView={setView}
           currentDate={currentDate}
-          events={events}
-          onUpdateEvent={updateEvent}
-          onAddEventClick={handleOpenAddModal}
-          onEditEventClick={handleOpenEditModal}
+          setCurrentDate={setCurrentDate}
         />
 
-        {/* Right analytics Sidebar */}
-        <Sidebar
-          events={events}
-          completedEventIds={completedEventIds}
-          toggleCompleteEvent={toggleCompleteEvent}
-          currentDate={currentDate}
+        {/* Central Content Area */}
+        <div className="flex-1 flex min-h-0 relative">
+          {/* Calendar Grid Section */}
+          <CalendarGrid
+            view={view}
+            currentDate={currentDate}
+            events={events}
+            onUpdateEvent={updateEvent}
+            onAddEventClick={handleOpenAddModal}
+            onEditEventClick={handleOpenEditModal}
+          />
+
+          {/* Right analytics Sidebar */}
+          <Sidebar
+            events={events}
+            completedEventIds={completedEventIds}
+            toggleCompleteEvent={toggleCompleteEvent}
+            currentDate={currentDate}
+          />
+        </div>
+
+        {/* Signature Floating AI Prompt Bar */}
+        <PromptBar onAction={handlePlannerAction} context={aiContext} />
+
+        {/* Event Details Creation / Editing Dialog */}
+        <EventModal
+          key={modalState.event ? modalState.event.id : `new-${modalState.defaultStart}`}
+          isOpen={modalState.isOpen}
+          onClose={() => setModalState({ isOpen: false, event: null })}
+          event={modalState.event}
+          defaultStart={modalState.defaultStart}
+          onSave={handleSaveEvent}
+          onDelete={handleDeleteEvent}
         />
       </div>
-
-      {/* Signature Floating AI Prompt Bar */}
-      <PromptBar onAction={handlePlannerAction} context={aiContext} />
-
-      {/* Event Details Creation / Editing Dialog */}
-      <EventModal
-        key={modalState.event ? modalState.event.id : `new-${modalState.defaultStart}`}
-        isOpen={modalState.isOpen}
-        onClose={() => setModalState({ isOpen: false, event: null })}
-        event={modalState.event}
-        defaultStart={modalState.defaultStart}
-        onSave={handleSaveEvent}
-        onDelete={handleDeleteEvent}
-      />
-    </div>
+    </ProtectedRoute>
   );
 }

@@ -5,6 +5,9 @@ import { Settings, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { format, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 import { ViewType } from "@/types";
 import { motion } from "framer-motion";
+import { useAuth } from "@/frontend/contexts/AuthContext";
+import { logoutUser } from "@/frontend/lib/firebase/auth";
+import { LogOut } from "lucide-react";
 
 interface NavbarProps {
   view: ViewType;
@@ -19,6 +22,16 @@ export function Navbar({
   currentDate,
   setCurrentDate,
 }: NavbarProps) {
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error("Failed to log out", err);
+    }
+  };
+
   const handlePrev = () => {
     if (view === "week") {
       setCurrentDate(subWeeks(currentDate, 1));
@@ -142,6 +155,30 @@ export function Navbar({
         >
           <Settings className="h-4.5 w-4.5" />
         </button>
+
+        {user && (
+          <div className="flex items-center gap-3 pl-2.5 border-l border-white/10">
+            {user.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.displayName || "User"}
+                className="h-7 w-7 rounded-full border border-white/10"
+              />
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-violet-600/20 border border-violet-500/25 flex items-center justify-center text-[10px] font-bold text-violet-300">
+                {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-colors cursor-pointer"
+              aria-label="Log Out"
+              title="Log Out"
+            >
+              <LogOut className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

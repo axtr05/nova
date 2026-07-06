@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/frontend/contexts/AuthContext";
 
 export default function RootLayout({
   children,
@@ -31,9 +32,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
-        <TooltipProvider delay={150}>
-          {children}
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider delay={150}>
+            {children}
+          </TooltipProvider>
+        </AuthProvider>
         <Toaster position="bottom-right" />
       </body>
     </html>
