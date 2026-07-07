@@ -68,11 +68,25 @@ export const plannerService = {
     const batch = writeBatch(db);
     for (const event of localEvents) {
       const eventRef = this.getEventDoc(uid, event.id);
+      const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
       batch.set(eventRef, {
-        ...event,
+        ...sanitizedEvent,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+    }
+    await batch.commit();
+  },
+
+  async batchUpsertEvents(uid: string, events: CalendarEvent[]): Promise<void> {
+    const batch = writeBatch(db);
+    for (const event of events) {
+      const eventRef = this.getEventDoc(uid, event.id);
+      const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
+      batch.set(eventRef, {
+        ...sanitizedEvent,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
     }
     await batch.commit();
   }

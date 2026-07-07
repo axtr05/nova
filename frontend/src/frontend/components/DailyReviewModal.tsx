@@ -112,7 +112,7 @@ export function DailyReviewModal({ isOpen, onClose, context }: DailyReviewModalP
           </button>
         </div>
 
-        <div className="p-6 relative min-h-[400px]">
+        <div className="p-8 relative min-h-[450px]">
           <AnimatePresence mode="wait">
             
             {step === "input" && (
@@ -121,65 +121,69 @@ export function DailyReviewModal({ isOpen, onClose, context }: DailyReviewModalP
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="space-y-6"
+                className="space-y-8"
               >
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">1. What went well today?</label>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block">What went well today?</label>
                     <textarea 
                       value={form.wentWell}
                       onChange={(e) => setForm({...form, wentWell: e.target.value})}
                       placeholder="Finished the marketing presentation..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 min-h-[80px]"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 min-h-[100px] custom-scrollbar resize-y"
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">2. What didn't go well?</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block">What didn't go well?</label>
                     <textarea 
                       value={form.didNotGoWell}
                       onChange={(e) => setForm({...form, didNotGoWell: e.target.value})}
                       placeholder="Got distracted during afternoon..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 min-h-[80px]"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50 min-h-[100px] custom-scrollbar resize-y"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">3. Energy (1-10)</label>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center justify-between">
+                        Energy Level
+                        <span className="text-violet-400 text-sm">{form.energy}</span>
+                      </label>
                       <input 
                         type="range" min="1" max="10" 
                         value={form.energy}
                         onChange={(e) => setForm({...form, energy: parseInt(e.target.value)})}
                         className="w-full accent-violet-500"
                       />
-                      <div className="text-center text-xs font-bold text-violet-400">{form.energy}</div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">4. Mood (1-10)</label>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center justify-between">
+                        Mood
+                        <span className="text-violet-400 text-sm">{form.mood}</span>
+                      </label>
                       <input 
                         type="range" min="1" max="10" 
                         value={form.mood}
                         onChange={(e) => setForm({...form, mood: parseInt(e.target.value)})}
                         className="w-full accent-violet-500"
                       />
-                      <div className="text-center text-xs font-bold text-violet-400">{form.mood}</div>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">5. Remember for tomorrow</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-widest block">Remember for tomorrow</label>
                     <input 
                       type="text"
                       value={form.rememberTomorrow}
                       onChange={(e) => setForm({...form, rememberTomorrow: e.target.value})}
                       placeholder="Follow up with Sarah..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/50"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end pt-4 border-t border-white/5">
                   <Button 
                     onClick={handleSubmit}
                     className="bg-gradient-nova hover:bg-gradient-nova-hover text-white rounded-xl px-6"

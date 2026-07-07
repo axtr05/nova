@@ -4,6 +4,8 @@ import { plannerService } from "@/services/planner/plannerService";
 import { useAuth } from "@/frontend/contexts/AuthContext";
 import { toast } from "sonner";
 import { startOfWeek, addDays, setHours, setMinutes, setSeconds, setMilliseconds } from "date-fns";
+import { syncOrchestrator } from "@/services/sync/syncOrchestrator";
+import { useCalendarSync } from "./useCalendarSync";
 
 const LOCAL_STORAGE_KEY = "nova-calendar-events";
 
@@ -45,6 +47,18 @@ export function useEvents() {
   const { user } = useAuth();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const { syncGoogleToNova, conflicts, resolveConflicts } = useCalendarSync(events);
+
+  useEffect(() => {
+    const handlePushConflict = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (user && (user.syncMode === "two_way" || user.syncMode === "nova_to_google")) {
+         syncOrchestrator.pushLocalUpdate(user.uid, customEvent.detail, 0);
+      }
+    };
+    window.addEventListener("nova:push-local-conflict", handlePushConflict);
+    return () => window.removeEventListener("nova:push-local-conflict", handlePushConflict);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -121,6 +135,9 @@ export function useEvents() {
     // but we can fire and forget the mutation
     try {
       await plannerService.createEvent(user.uid, newEvent);
+      if (user.syncMode === "two_way" || user.syncMode === "nova_to_google") {
+        syncOrchestrator.pushLocalUpdate(user.uid, newEvent, 0); // No debounce on create
+      }
     } catch (err: any) {
       toast.error("Failed to create event", { description: err.message });
       throw err;
@@ -132,6 +149,9 @@ export function useEvents() {
     if (!user) return;
     try {
       await plannerService.updateEvent(user.uid, updatedEvent);
+      if (user.syncMode === "two_way" || user.syncMode === "nova_to_google") {
+        syncOrchestrator.pushLocalUpdate(user.uid, updatedEvent);
+      }
     } catch (err: any) {
       toast.error("Failed to update event", { description: err.message });
       throw err;
@@ -141,7 +161,11 @@ export function useEvents() {
   const deleteEvent = async (id: string) => {
     if (!user) return;
     try {
+      const eventToDelete = events.find(e => e.id === id);
       await plannerService.deleteEvent(user.uid, id);
+      if (eventToDelete?.googleEventId && (user.syncMode === "two_way" || user.syncMode === "nova_to_google")) {
+        syncOrchestrator.pushLocalDelete(eventToDelete.googleEventId);
+      }
     } catch (err: any) {
       toast.error("Failed to delete event", { description: err.message });
       throw err;
@@ -154,5 +178,7 @@ export function useEvents() {
     addEvent,
     updateEvent,
     deleteEvent,
+    conflicts,
+    resolveConflicts
   };
 }

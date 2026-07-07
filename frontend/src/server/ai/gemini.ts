@@ -18,26 +18,42 @@ Always return a single strictly formatted JSON object matching this schema:
   "free_time": ["Array of strings highlighting large gaps where work/workouts could fit"],
   "suggestions": [
     {
-      "reasoning": "Explanation of why this change is good (e.g., 'Move Workout to Wednesday for better recovery before your Interval Run.')",
+      "reasoning": "Explanation of why this change is good (e.g., 'Move Workout to Wednesday for better recovery before your Interval Run.') If modifying a Google Calendar event, you MUST include 'This change will also update your Google Calendar.' in your reasoning.",
       "proposed_changes": [
         // Array of PlannerAction objects exactly as specified below
       ]
     }
-  ]
+  ],
+  "requires_confirmation": boolean, // False if the prompt is a simple, direct CRUD command (e.g. "Add milk to checklist", "Delete meeting", "Add workout tomorrow"). True if the AI needs user approval (e.g., overlapping events, deleting dependent tasks, major schedule shifts, or ANY modification to a Google Calendar event).
+  "missing_information_question": "String containing a follow-up question if you need more details to fulfill a request. Leave empty if no info is missing."
 }
 
 Do NOT wrap the JSON in markdown code blocks (e.g., no \`\`\`json ... \`\`\`). Just return the raw JSON object string.
 
 Supported PlannerAction objects for proposed_changes:
 1. create_event: { "action": "create_event", "title": "...", "date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM", "description": "...", "color": "violet" }
-2. update_event: { "action": "update_event", "originalTitle": "Exact old title to match", "newTitle": "...", "newDate": "YYYY-MM-DD", "newStart": "HH:MM", "newEnd": "HH:MM" }
+2. update_event: { "action": "update_event", "originalTitle": "Exact old title to match", "newTitle": "...", "newDate": "YYYY-MM-DD", "newStart": "HH:MM", "newEnd": "HH:MM", "newPriority": "low" | "medium" | "high" | "do_it_now", "newNote": "...", "newChecklistItem": "..." }
 3. delete_event: { "action": "delete_event", "title": "Exact title to delete" }
 4. mark_complete: { "action": "mark_complete", "title": "Exact title to complete" }
 
 CRITICAL RULES:
-- If the user explicitly asks to create/move an event, include that in suggestions.
-- NEVER automatically modify the calendar. All actions must be inside "proposed_changes" for user approval.
+- If the user explicitly asks to create/move/edit an event, include that in suggestions.
+- If the user gives a simple command without conflicts, set requires_confirmation to false so it executes instantly!
+- Ask permission (requires_confirmation: true) ONLY if there's a conflict or destructive change.
+- Use "missing_information_question" if you cannot guess the time/date safely. DO NOT GUESS missing times.
+- Assign the "do_it_now" priority ONLY for absolute urgencies (e.g., medical, today's deadlines, exams today).
 - Ensure times are 24-hour HH:MM strings.
+- GOAL SYNC: The context may contain events with 'source': 'Google Calendar'. Treat them like regular events for analysis.
+- If you propose an update or delete action for an event where source is 'Google Calendar', you MUST set requires_confirmation to true.
+- SMART COLOR ASSIGNMENT: Automatically assign color based on the event title category:
+  * Workout (Gym, Running, Cycling, Swimming, Strength) -> "emerald"
+  * Study (College, Assignment, Exam, Contest, LeetCode, Codeforces, GATE, Research) -> "blue"
+  * Meeting (Call, Interview, Discussion, Client, Office) -> "violet"
+  * Project (Development, Coding, GitHub, NOVA, AXIOM, Design) -> "cyan"
+  * Shopping (Groceries, Bank, Bills, Travel, Errands) -> "orange"
+  * Personal (Family, Friends, Birthday, Journal, Reading, Meditation) -> "pink"
+  * Health (Doctor, Medicine, Hospital, Recovery) -> "red"
+  * Unknown/Other -> "violet"
 `;
 
 export async function processUserPrompt(prompt: string, context: string, memoryContext: string = "", modelName: string = "gemini-2.5-flash"): Promise<AIAnalysisResult> {
@@ -70,7 +86,24 @@ export async function processUserPrompt(prompt: string, context: string, memoryC
       }
     });
 
-    const text = response.text || "{}";
+    let text = response.text || "{}";
+    
+    // Strip markdown formatting if Gemini included it despite instructions
+    if (text.startsWith("```json")) {
+      text = text.substring(7);
+    } else if (text.startsWith("```")) {
+      text = text.substring(3);
+    }
+    if (text.endsWith("```")) {
+      text = text.substring(0, text.length - 3);
+    }
+    
+    // Fallback: extract the JSON object using regex if there's trailing text
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
+    }
+
     const parsed = JSON.parse(text) as AIAnalysisResult;
     
     // Ensure all arrays exist to prevent frontend mapping crashes
@@ -80,15 +113,35 @@ export async function processUserPrompt(prompt: string, context: string, memoryC
       conflicts: parsed.conflicts || [],
       free_time: parsed.free_time || [],
       suggestions: parsed.suggestions || [],
+      requires_confirmation: parsed.requires_confirmation ?? true,
+      missing_information_question: parsed.missing_information_question
     };
-  } catch (error) {
-    console.error("Gemini Error:", error);
+  } catch (error: any) {
+    // Only log non-429 errors to avoid triggering Next.js Dev Overlay for rate limits
+    if (error?.status !== 429 && !(error?.message && error.message.includes("429"))) {
+      console.error("Gemini Error:", error);
+    }
+    
+    if (error?.status === 429 || (error?.message && error.message.includes("429"))) {
+      return {
+        summary: "",
+        warnings: [],
+        conflicts: [],
+        free_time: [],
+        suggestions: [],
+        requires_confirmation: true,
+        isError: true,
+        errorMessage: "Google AI Speed Limit Exceeded (Free Tier is limited to 15 requests per minute). Your daily quota is fine, but please wait 30 seconds before sending another request."
+      };
+    }
+
     return {
       summary: "",
       warnings: [],
       conflicts: [],
       free_time: [],
       suggestions: [],
+      requires_confirmation: true,
       isError: true,
       errorMessage: "NOVA AI Engine encountered an error connecting to Gemini. Please try again."
     };

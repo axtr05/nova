@@ -1,36 +1,156 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NOVA - Premium AI-Powered Planning Workspace
 
-## Getting Started
+NOVA is a premium, futuristic scheduling and calendar workspace featuring seamless AI task translation. Users can naturally interact with their schedule through conversational AI that translates commands into structured planner actions.
 
-First, run the development server:
+## 🌟 Features Currently Implemented
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Intelligent Planner UI**: A beautiful, premium dark-mode workspace utilizing glassmorphism and animated glows.
+- **Interactive Calendar Grid**: Visual, drag-and-drop-ready calendar views supporting both daily and weekly spreads.
+- **Firebase Authentication**: Fully protected routes using Google Sign-In and Email & Password, ensuring private isolated sessions.
+- **Gemini AI Action Engine**: An integrated natural language parser (using the official Google Gen AI SDK) that interprets free-form text ("Move my meeting to 5 PM tomorrow") into precise JSON schedule mutations.
+- **Real-Time State Management**: Instant UI updates powered by a robust custom React hook and context structure.
+
+## 📂 Repository Structure
+
+NOVA is structured as a monorepo, decoupling the user interface from future scalable microservices.
+
+```text
+nova/
+├── backend/            # Foundational structure for the future standalone backend service
+│   ├── public/         # Static assets
+│   └── src/
+│       ├── app/        # Next.js App Router & Pages (Login, Planner)
+│       ├── frontend/   # Client-side components, hooks, and contexts
+│       ├── server/     # Serverless API routes (AI processing)
+│       └── services/   # External Integrations
+│           ├── firebase/ # Firebase config
+│           ├── planner/  # Firestore sync wrapper
+│           └── sync/     # Centralized Sync Orchestrator (Google Calendar, etc)
+├── frontend/           # The full-stack Next.js application
+│   ├── public/         # Static assets
+│   └── src/
+│       ├── app/        # Next.js App Router & Pages (Login, Planner)
+│       ├── frontend/   # Client-side components, hooks, and contexts
+│       └── server/     # Temporary Serverless API routes (AI processing)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Installation & Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Requirements
+- **Node.js**: v18.17 or higher
+- **npm**: v9 or higher
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Clone Instructions
+```bash
+git clone https://github.com/yourusername/nova.git
+cd nova/frontend
+```
 
-## Learn More
+### Install Dependencies
+All frontend dependencies must be installed inside the `frontend/` directory.
+```bash
+npm install
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Environment Variables
+For the application to run successfully, you must configure two external providers: **Firebase** and **Google Gemini**.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Open `.env.local` and fill in your keys (see setups below).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+#### Example `.env.local`
+```env
+# Gemini API Key (Required for AI actions)
+GEMINI_API_KEY="AIzaSyYourApiKeyHere..."
 
-## Deploy on Vercel
+# Firebase Config (Required for Authentication)
+NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyYourFirebaseKey..."
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="nova-planner.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="nova-planner"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="nova-planner.appspot.com"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:1234:web:abcd"
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Firebase Setup
+1. Create a new project in the [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Authentication** and add **Google** and **Email/Password** providers.
+3. Enable **Firestore Database** in production mode.
+4. Go to the **Rules** tab in Firestore and replace the default rules with the following strict isolation rules:
+   ```javascript
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       // Users can only read and write their own profile
+       match /users/{userId} {
+         allow read, write: if request.auth != null && request.auth.uid == userId;
+       }
+       // Users can only read and write events inside their own uid collection
+       match /events/{userId}/{document=**} {
+         allow read, write: if request.auth != null && request.auth.uid == userId;
+       }
+     }
+   }
+   ```
+5. Enable **Storage** in your Firebase console.
+6. Go to the **Rules** tab in Storage and apply the following isolated rules:
+   ```javascript
+   rules_version = '2';
+   service firebase.storage {
+     match /b/{bucket}/o {
+       match /users/{userId}/events/{eventId}/attachments/{allPaths=**} {
+         allow read, write: if request.auth != null && request.auth.uid == userId;
+       }
+     }
+   }
+   ```
+7. Register a Web App and copy the configuration snippet provided into your `.env.local`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Gemini AI Planner Engine
+1. Get a developer API key from [Google AI Studio](https://aistudio.google.com/).
+2. Add the key to your `.env.local` file:
+   ```bash
+   GEMINI_API_KEY="your_api_key_here"
+   ```
+3. The AI Planner will now analyze your events, detect conflicts, find free time, and propose schedule reorganizations using `gemini-2.5-flash`.
+4. All AI suggestions are presented in the **AI Analysis Panel** for your explicit approval before modifying the calendar.
+
+## 📅 Google Calendar Sync Setup
+
+To enable the Two-Way Google Calendar synchronization in NOVA:
+
+1. **Google Cloud Console**: Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. **Enable API**: In your Firebase project, go to **APIs & Services > Library** and enable **Google Calendar API**.
+3. **OAuth Consent Screen**: Add the scope `https://www.googleapis.com/auth/calendar.events` to your app's consent screen. 
+4. **App Integration**: NOVA uses Firebase Auth to request the calendar scope incrementally when a Google-authenticated user clicks "Connect Calendar". Only users who sign in via Google will see this feature.
+
+### Sync Orchestrator Architecture
+All synchronization logic is managed centrally via `src/services/sync/syncOrchestrator.ts`. UI components never interface directly with external Calendar APIs. The Sync Orchestrator seamlessly manages debouncing (`syncQueue.ts`), offline detection, secure in-memory OAuth tokens (`googleCalendarSync.ts`), and drift conflicts (`conflictResolver.ts`).
+
+## 🚀 Quick Start
+
+### Start Development
+Start the Next.js development server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser. You will be redirected to the secure login page.
+
+## 🛠 Common Troubleshooting
+
+- **`Could not load default credentials`** (Gemini Error): Ensure `GEMINI_API_KEY` is correctly set in your `.env.local`. The system will gracefully block requests and show a UI toast if it is missing.
+- **Google Sign-In popup closes immediately**: Ensure popups are allowed for `localhost:3000` in your browser settings.
+- **Module not found (`@/server/...`)**: Ensure you are running `npm run dev` from *inside* the `frontend/` directory, not the repository root.
+
+## 🗺 Current Roadmap & Future Architecture
+
+### Current Status
+NOVA has achieved a stable Minimum Viable Product (MVP). The core UI, auth structure, and AI logic are finalized and strictly locked.
+
+### Next Phases
+1. **Firestore Integration**: Persist events remotely to Cloud Firestore so schedules synchronize across sessions and devices.
+2. **Standalone Backend**: Transition the serverless logic located in `frontend/src/server/` into the `backend/` directory using an isolated framework (FastAPI/Express/Go).
+3. **Advanced AI**: Introduce multi-step AI reasoning and external integrations (e.g., pulling weather or external Google Calendar feeds).

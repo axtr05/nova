@@ -16,6 +16,7 @@ interface NavbarProps {
   currentDate: Date;
   setCurrentDate: (date: Date) => void;
   onOpenMemory: () => void;
+  onOpenSettings: () => void;
 }
 
 export function Navbar({
@@ -24,8 +25,19 @@ export function Navbar({
   currentDate,
   setCurrentDate,
   onOpenMemory,
+  onOpenSettings,
 }: NavbarProps) {
   const { user } = useAuth();
+  const [imgError, setImgError] = React.useState(false);
+
+  const getInitials = (name?: string | null, email?: string | null) => {
+    const text = name || email || "User";
+    const parts = text.split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return text.substring(0, 2).toUpperCase();
+  };
 
   const handleLogout = async () => {
     try {
@@ -169,6 +181,7 @@ export function Navbar({
 
         {/* Settings button */}
         <button
+          onClick={onOpenSettings}
           className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           aria-label="Settings"
         >
@@ -177,15 +190,16 @@ export function Navbar({
 
         {user && (
           <div className="flex items-center gap-3 pl-2.5 border-l border-white/10">
-            {user.photoURL ? (
+            {user.photoURL && !imgError ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName || "User"}
-                className="h-7 w-7 rounded-full border border-white/10"
+                className="h-7 w-7 rounded-full border border-white/10 object-cover"
+                onError={() => setImgError(true)}
               />
             ) : (
-              <div className="h-7 w-7 rounded-full bg-violet-600/20 border border-violet-500/25 flex items-center justify-center text-[10px] font-bold text-violet-300">
-                {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+              <div className="h-7 w-7 rounded-full bg-gradient-nova border border-violet-400/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-violet-500/20">
+                {getInitials(user.displayName, user.email)}
               </div>
             )}
             <button

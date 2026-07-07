@@ -20,10 +20,10 @@ interface ModelOption {
 }
 
 const MODELS: ModelOption[] = [
-  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", badge: "Active", desc: "Next-gen balanced speed and intelligence" },
-  { id: "gemini-3.0-ultra", name: "Gemini 3.0 Ultra", badge: "Reasoning", desc: "Deep reasoning and complex scheduling logic" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", badge: "Production", desc: "Advanced reasoning and task management" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", badge: "Fast", desc: "Sub-second response times for edits" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", badge: "Primary", desc: "Fast, reliable, and high rate limits" },
+  { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite", badge: "Active", desc: "Lightweight, massive request limits" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", badge: "Stable", desc: "Legacy fast engine (1.5k/day limits)" },
+  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", badge: "Beta", desc: "Next-gen logic (Lower rate limits)" },
 ];
 
 interface PromptBarProps {

@@ -17,9 +17,12 @@ import { DailyReviewModal } from "@/frontend/components/DailyReviewModal";
 import { MemoryViewer } from "@/frontend/components/MemoryViewer";
 import { useMemories } from "@/frontend/hooks/useMemories";
 import { Memory } from "@/types";
+import { FirstLoginDialog } from "@/frontend/components/FirstLoginDialog";
+import { SettingsModal } from "@/frontend/components/SettingsModal";
+import { SyncConflictModal } from "@/frontend/components/SyncConflictModal";
 
 export default function Home() {
-  const { events, isLoaded, addEvent, updateEvent, deleteEvent } = useEvents();
+  const { events, isLoaded, addEvent, updateEvent, deleteEvent, conflicts, resolveConflicts } = useEvents();
   const { memories, togglePin, deleteMemory } = useMemories();
   
   const [view, setView] = useState<ViewType>("week");
@@ -27,6 +30,7 @@ export default function Home() {
   
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isMemoryViewerOpen, setIsMemoryViewerOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Modal control state
   const [modalState, setModalState] = useState<{
@@ -72,7 +76,10 @@ export default function Home() {
   };
 
   const executeChanges = (changes: PlannerAction[]) => {
+    if (!Array.isArray(changes)) return;
+
     changes.forEach((action) => {
+      if (!action) return;
       switch (action.action) {
         case "error":
           toast.error("Action Failed", { description: action.message });
@@ -90,6 +97,10 @@ export default function Home() {
           break;
 
         case "update_event":
+          if (!action.originalTitle) {
+            toast.error("Event Not Found", { description: "AI did not specify which event to update." });
+            break;
+          }
           const targetEvent = events.find(e => e.title.toLowerCase().includes(action.originalTitle.toLowerCase()));
           if (!targetEvent) {
             toast.error("Event Not Found", { description: `Could not find an event matching "${action.originalTitle}"` });
@@ -100,6 +111,20 @@ export default function Home() {
           if (action.newTitle) updatedEvent.title = action.newTitle;
           if (action.newDescription) updatedEvent.description = action.newDescription;
           if (action.newColor) updatedEvent.color = action.newColor;
+          if (action.newPriority) updatedEvent.priority = action.newPriority;
+          
+          if (action.newNote) {
+            updatedEvent.notes = updatedEvent.notes 
+              ? `${updatedEvent.notes}\n${action.newNote}`
+              : action.newNote;
+          }
+
+          if (action.newChecklistItem) {
+            const newItem = { id: crypto.randomUUID(), text: action.newChecklistItem, completed: false };
+            updatedEvent.checklist = updatedEvent.checklist 
+              ? [...updatedEvent.checklist, newItem]
+              : [newItem];
+          }
 
           if (action.newDate || action.newStart || action.newEnd) {
             const oldStartDate = targetEvent.start.split('T')[0];
@@ -121,6 +146,9 @@ export default function Home() {
           break;
 
         case "delete_event":
+          if (!action.title) {
+             break;
+          }
           const eventToDelete = events.find(e => e.title.toLowerCase().includes(action.title.toLowerCase()));
           if (!eventToDelete) {
             toast.error("Event Not Found", { description: `Could not find an event matching "${action.title}"` });
@@ -131,6 +159,9 @@ export default function Home() {
           break;
 
         case "mark_complete":
+          if (!action.title) {
+             break;
+          }
           const eventToComplete = events.find(e => e.title.toLowerCase().includes(action.title.toLowerCase()));
           if (!eventToComplete) {
             toast.error("Event Not Found", { description: `Could not find an event matching "${action.title}"` });
@@ -161,6 +192,21 @@ export default function Home() {
       toast.error("Analysis Failed", { description: result.errorMessage });
       return;
     }
+
+    if (result.missing_information_question) {
+      toast("NOVA needs more details", {
+        description: result.missing_information_question,
+        duration: 8000,
+      });
+      return;
+    }
+
+    if (result.requires_confirmation === false && result.suggestions.length > 0) {
+      // Execute instantly, no UI interruption
+      executeChanges(result.suggestions[0].proposed_changes);
+      return;
+    }
+
     setAnalysisResult(result);
   };
 
@@ -174,7 +220,8 @@ export default function Home() {
       end: e.end,
       priority: e.priority || "medium",
       tags: e.tags || [],
-      isCompleted: !!e.completed
+      isCompleted: !!e.completed,
+      source: e.source || "NOVA"
     }))
   });
 
@@ -236,6 +283,7 @@ export default function Home() {
           currentDate={currentDate}
           setCurrentDate={setCurrentDate}
           onOpenMemory={() => setIsMemoryViewerOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         {/* Central Content Area */}
@@ -297,6 +345,19 @@ export default function Home() {
           onTogglePin={togglePin}
           onDelete={deleteMemory}
         />
+        
+        <SettingsModal 
+          isOpen={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+        />
+        
+        <SyncConflictModal
+          isOpen={conflicts && conflicts.length > 0}
+          conflicts={conflicts || []}
+          onResolve={resolveConflicts}
+        />
+        
+        <FirstLoginDialog />
       </div>
     </ProtectedRoute>
   );

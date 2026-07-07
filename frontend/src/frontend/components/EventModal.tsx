@@ -31,10 +31,12 @@ import {
   Paperclip,
   Image as ImageIcon,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Cloud
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { getCategoryAndColor } from "../utils/colors";
 
 interface EventModalProps {
   isOpen: boolean;
@@ -51,6 +53,9 @@ const COLORS = [
   { key: "emerald", name: "Emerald", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", dot: "bg-emerald-400" },
   { key: "pink", name: "Pink", bg: "bg-pink-500/20 text-pink-300 border-pink-500/30", dot: "bg-pink-400" },
   { key: "amber", name: "Amber", bg: "bg-amber-500/20 text-amber-300 border-amber-500/30", dot: "bg-amber-400" },
+  { key: "cyan", name: "Cyan", bg: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30", dot: "bg-cyan-400" },
+  { key: "orange", name: "Orange", bg: "bg-orange-500/20 text-orange-300 border-orange-500/30", dot: "bg-orange-400" },
+  { key: "red", name: "Red", bg: "bg-red-500/20 text-red-300 border-red-500/30", dot: "bg-red-400" },
 ];
 
 export function EventModal({
@@ -70,6 +75,8 @@ export function EventModal({
   const [endTime, setEndTime] = useState("");
   
   const [color, setColor] = useState("violet");
+  const [isManualColor, setIsManualColor] = useState(false);
+  
   const [priority, setPriority] = useState<Priority>("medium");
   const [completed, setCompleted] = useState(false);
   
@@ -105,7 +112,13 @@ export function EventModal({
         setEndTime(format(dEnd, "HH:mm"));
       }
       
-      setColor(event ? event.color || "violet" : "violet");
+      const initialTitle = event ? event.title : "";
+      const initialAutoColor = getCategoryAndColor(initialTitle).color;
+      const initialColor = event ? event.color || "violet" : "violet";
+      
+      setColor(initialColor);
+      setIsManualColor(event ? initialColor !== initialAutoColor : false);
+      
       setPriority(event ? event.priority || "medium" : "medium");
       setCompleted(event ? !!event.completed : false);
       setTags(event && event.tags ? [...event.tags] : []);
@@ -120,6 +133,14 @@ export function EventModal({
       setUploadProgress(0);
     }
   }, [isOpen, event, defaultStart]);
+
+  const { category: detectedCategory, color: autoColor } = getCategoryAndColor(title);
+  
+  useEffect(() => {
+    if (isOpen && !isManualColor && title) {
+      setColor(autoColor);
+    }
+  }, [title, isManualColor, autoColor, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,6 +258,13 @@ export function EventModal({
           <DialogTitle className="text-xl font-semibold tracking-tight text-white flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-gradient-nova animate-pulse" />
             {event ? "Workspace" : "New Workspace"}
+            
+            {event?.source && event.source !== "NOVA" && (
+              <span className="ml-2 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-white/10 text-slate-300 border border-white/20 flex items-center gap-1">
+                <Cloud className="h-3 w-3" />
+                {event.source}
+              </span>
+            )}
             
             <div className="ml-auto flex items-center gap-3">
               <button
@@ -423,20 +451,21 @@ export function EventModal({
                   <AlertCircle className="h-3 w-3" /> Priority
                 </label>
                 <div className="flex gap-2">
-                  {["low", "medium", "high"].map((p) => (
+                  {(priority === "do_it_now" ? ["do_it_now", "low", "medium", "high"] : ["low", "medium", "high"]).map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setPriority(p as Priority)}
                       className={`flex-1 capitalize py-1.5 rounded-lg border text-xs font-medium transition-all ${
                         priority === p
-                          ? p === "high" ? "bg-red-500/20 text-red-300 border-red-500/40" :
+                          ? p === "do_it_now" ? "bg-amber-400/20 text-amber-400 border-amber-400 font-bold shadow-[0_0_15px_rgba(251,191,36,0.3)]" :
+                            p === "high" ? "bg-red-500/20 text-red-300 border-red-500/40" :
                             p === "medium" ? "bg-amber-500/20 text-amber-300 border-amber-500/40" :
                             "bg-blue-500/20 text-blue-300 border-blue-500/40"
                           : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10"
                       }`}
                     >
-                      {p}
+                      {p === "do_it_now" ? "DO IT NOW" : p}
                     </button>
                   ))}
                 </div>
@@ -480,7 +509,7 @@ export function EventModal({
               </div>
 
               {/* Color Selector */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
                   Theme Color
                 </label>
@@ -489,7 +518,10 @@ export function EventModal({
                     <button
                       key={c.key}
                       type="button"
-                      onClick={() => setColor(c.key)}
+                      onClick={() => {
+                        setColor(c.key);
+                        setIsManualColor(true);
+                      }}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
                         color === c.key
                           ? "bg-white/15 text-white border-white/35 scale-105"
@@ -500,6 +532,35 @@ export function EventModal({
                       {c.name}
                     </button>
                   ))}
+                </div>
+
+                {/* AI Color Legend */}
+                <div className="flex flex-col gap-2 mt-3 px-3 py-2 bg-white/5 border border-white/10 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Detected Category</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Auto Color</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-200">{detectedCategory}</span>
+                    <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${COLORS.find(c => c.key === autoColor)?.dot || "bg-violet-400"}`} />
+                      {COLORS.find(c => c.key === autoColor)?.name || "Violet"}
+                    </span>
+                  </div>
+                  {color !== autoColor && (
+                    <div className="pt-2 mt-1 border-t border-white/5 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsManualColor(false);
+                          setColor(autoColor);
+                        }}
+                        className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 px-3 py-1.5 rounded-lg border border-violet-500/20"
+                      >
+                        Reset to Automatic
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

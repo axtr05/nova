@@ -30,6 +30,9 @@ export interface UpdateEventAction extends BaseAction {
   newEnd?: string;
   newDescription?: string;
   newColor?: "violet" | "blue" | "emerald" | "pink" | "amber";
+  newPriority?: "low" | "medium" | "high" | "do_it_now";
+  newNote?: string;
+  newChecklistItem?: string;
 }
 
 export interface DeleteEventAction extends BaseAction {
@@ -71,6 +74,8 @@ export interface AIAnalysisResult {
   conflicts: string[];
   free_time: string[];
   suggestions: AISuggestion[];
+  requires_confirmation?: boolean;
+  missing_information_question?: string;
   isError?: boolean;
   errorMessage?: string;
 }

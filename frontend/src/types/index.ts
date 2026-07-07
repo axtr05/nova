@@ -4,7 +4,8 @@ export interface ChecklistItem {
   completed: boolean;
 }
 
-export type Priority = 'low' | 'medium' | 'high';
+export type Priority = 'low' | 'medium' | 'high' | 'do_it_now';
+export type EventSource = 'NOVA' | 'Google Calendar' | 'Imported' | 'AI Generated';
 
 export interface CalendarEvent {
   id: string;
@@ -28,6 +29,8 @@ export interface CalendarEvent {
     uploadedAt: string;
   }[];
   aiSummary?: string;
+  source?: EventSource;
+  googleEventId?: string;
 }
 
 export type ViewType = "week" | "day";
