@@ -14,10 +14,10 @@ import { getAuth } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db, sanitizeFirestoreData } from "@/services/firebase/firebaseService";
 import { toast } from "sonner";
-import { Calendar, Settings as SettingsIcon, RefreshCcw, X, Loader2, AlertTriangle } from "lucide-react";
+import { Calendar, Settings as SettingsIcon, RefreshCcw, Loader2, AlertTriangle, Cpu, Wand2 } from "lucide-react";
 import { syncOrchestrator } from "@/services/sync/syncOrchestrator";
 import { hasValidCalendarToken, isPopupActive } from "@/services/sync/googleCalendarSync";
-import { SyncMode } from "@/frontend/types/user";
+import { SyncMode, AIModelsSettings } from "@/frontend/types/user";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,6 +28,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { user } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [disconnectMode, setDisconnectMode] = useState<"none" | "keep" | "remove">("none");
+  const [activeTab, setActiveTab] = useState<"calendar" | "ai">("calendar");
 
   React.useEffect(() => {
     const handlePopupState = () => setIsConnecting(isPopupActive);
@@ -97,8 +98,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }), { merge: true });
       
       if (action === "remove") {
-        // Here we would typically trigger an API endpoint or background function 
-        // to scrub imported events from Firestore.
         toast.success("Disconnected and queued imported events for removal");
       } else {
         toast.success("Disconnected. Imported events were kept.");
@@ -109,6 +108,46 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
+  const handleUpdateAIModel = async (feature: keyof AIModelsSettings, value: string) => {
+    try {
+      const currentModels = user.aiModels || {
+        planner: "AUTO",
+        analytics: "AUTO",
+        memory: "AUTO",
+        dailyReview: "AUTO",
+        globalOverride: null
+      };
+
+      await setDoc(doc(db, "users", user.uid), sanitizeFirestoreData({
+        settings: {
+          aiModels: {
+            ...currentModels,
+            [feature]: value === "null" ? null : value
+          }
+        }
+      }), { merge: true });
+      toast.success("AI Model Preferences Updated");
+    } catch (e) {
+      toast.error("Failed to update AI preferences");
+    }
+  };
+
+  const aiSettings = user.aiModels || {
+    planner: "AUTO",
+    analytics: "AUTO",
+    memory: "AUTO",
+    dailyReview: "AUTO",
+    globalOverride: null
+  };
+
+  const availableModels = [
+    { id: "AUTO", label: "AUTO (Recommended)" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" }
+  ];
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px] glass-card text-slate-100 border-white/10 shadow-2xl p-6 rounded-2xl">
@@ -118,11 +157,32 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </DialogTitle>
         </DialogHeader>
 
+        <div className="flex gap-2 border-b border-white/10 pb-4 mt-2">
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+              activeTab === "calendar" 
+                ? "bg-white text-slate-900" 
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            }`}
+          >
+            Google Calendar
+          </button>
+          <button
+            onClick={() => setActiveTab("ai")}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+              activeTab === "ai" 
+                ? "bg-white text-slate-900" 
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            }`}
+          >
+            AI Models
+          </button>
+        </div>
+
         <div className="space-y-6 mt-4">
-          <section className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2 border-b border-white/10 pb-2">
-              <Calendar className="h-4 w-4 text-violet-400" /> Google Calendar
-            </h3>
+          {activeTab === "calendar" && (
+            <section className="space-y-4">
             
             {!isGoogleUser ? (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
@@ -147,8 +207,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <p className="text-sm text-red-200 text-center font-medium">
                   Google Calendar authorization expired.<br />Reconnect to continue syncing.
                 </p>
-                <div className="flex w-full mt-4">
-                  <Button onClick={handleConnect} disabled={isConnecting} className="w-full h-8 px-3 bg-gradient-nova hover:bg-gradient-nova-hover text-white shadow-lg shadow-violet-500/20">
+                <div className="flex justify-center w-full mt-4">
+                  <Button onClick={handleConnect} disabled={isConnecting} className="h-8 px-6 bg-gradient-nova hover:bg-gradient-nova-hover text-white shadow-lg shadow-violet-500/20">
                     {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
                     Reconnect
                   </Button>
@@ -212,21 +272,73 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <p className="text-[11px] text-slate-500 font-medium">
                     Last Sync: {user.googleCalendar?.lastSuccessfulSync ? new Date(user.googleCalendar.lastSuccessfulSync).toLocaleString() : "Never"}
                   </p>
-                  <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex justify-end gap-3 w-full sm:w-auto">
                     <Button onClick={() => {
                       toast.info("Syncing with Google Calendar...");
                       window.dispatchEvent(new Event("nova:manual-sync"));
-                    }} variant="outline" className="flex-1 h-8 px-3 text-xs bg-white/5 border-white/10 text-slate-300 hover:text-white">
+                    }} variant="outline" className="h-8 px-4 text-xs bg-white/5 border-white/10 text-slate-300 hover:text-white">
                       <RefreshCcw className="h-3 w-3 mr-1.5" /> Sync Now
                     </Button>
-                    <Button onClick={() => setDisconnectMode("remove")} variant="destructive" className="flex-1 h-8 px-3 text-xs bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/60">
+                    <Button onClick={() => setDisconnectMode("remove")} variant="destructive" className="h-8 px-4 text-xs bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/60">
                       Disconnect
                     </Button>
                   </div>
                 </div>
               </div>
             )}
-          </section>
+            </section>
+          )}
+
+          {activeTab === "ai" && (
+            <section className="space-y-4">
+              <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-indigo-300">Global Override</h4>
+                    <p className="text-xs text-indigo-200/70 mt-1">Force all features to use a specific model.</p>
+                  </div>
+                  <select
+                    value={aiSettings.globalOverride || "null"}
+                    onChange={(e) => handleUpdateAIModel("globalOverride", e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option value="null">None (Use Feature Settings)</option>
+                    {availableModels.filter(m => m.id !== "AUTO").map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  { key: "planner", label: "Planner & AI Assistant", icon: <Wand2 className="h-4 w-4" /> },
+                  { key: "analytics", label: "Weekly Analytics", icon: <Cpu className="h-4 w-4" /> },
+                  { key: "memory", label: "Memory Extraction", icon: <Cpu className="h-4 w-4" /> },
+                  { key: "dailyReview", label: "Daily Review", icon: <Cpu className="h-4 w-4" /> }
+                ].map(feature => (
+                  <div key={feature.key} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/5 rounded-lg text-slate-400">
+                        {feature.icon}
+                      </div>
+                      <p className="text-sm font-medium text-slate-200">{feature.label}</p>
+                    </div>
+                    <select
+                      value={aiSettings[feature.key as keyof AIModelsSettings] || "AUTO"}
+                      onChange={(e) => handleUpdateAIModel(feature.key as keyof AIModelsSettings, e.target.value)}
+                      disabled={!!aiSettings.globalOverride}
+                      className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-200 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {availableModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <DialogFooter className="mt-6 pt-4 border-t border-white/5">

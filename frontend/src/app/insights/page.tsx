@@ -5,6 +5,7 @@ import { ProtectedRoute } from "@/frontend/components/ProtectedRoute";
 import { useEvents } from "@/frontend/hooks/useEvents";
 import { useMemories } from "@/frontend/hooks/useMemories";
 import { analyticsService } from "@/services/analytics/analyticsService";
+import { useAuth } from "@/frontend/contexts/AuthContext";
 import { AIWeeklyReport } from "@/types";
 import { format } from "date-fns";
 import { Sparkles, ArrowLeft, Target, TrendingUp, Clock, Calendar, CheckCircle2, Battery, BrainCircuit } from "lucide-react";
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 export default function InsightsPage() {
   const { events, isLoaded: eventsLoaded } = useEvents();
   const { memories, isLoaded: memoriesLoaded } = useMemories();
+  const { user } = useAuth();
 
   const [aiReport, setAiReport] = useState<AIWeeklyReport | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -51,7 +53,8 @@ export default function InsightsPage() {
         body: JSON.stringify({
           summary,
           chartData,
-          memories: topMemories
+          memories: topMemories,
+          aiModels: user?.aiModels
         })
       });
 

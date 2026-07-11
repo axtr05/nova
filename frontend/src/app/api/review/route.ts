@@ -5,7 +5,7 @@ import { DailyReviewInput } from "@/types";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { answers, context, modelId } = body as { answers: DailyReviewInput, context: string, modelId: string };
+    const { answers, context, aiModels } = body;
 
     if (!answers) {
       return NextResponse.json(
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const reviewResult = await processDailyReview(answers, context || "", modelId);
+    const reviewResult = await processDailyReview(answers, context || "", aiModels);
     return NextResponse.json(reviewResult);
   } catch (error) {
     console.error("API Route Error:", error);

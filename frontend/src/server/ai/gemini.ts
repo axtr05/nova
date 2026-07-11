@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIAnalysisResult } from "../types/actions";
+import { aiRouter } from "./router";
+import { AIModelsSettings } from "@/frontend/types/user";
 
 const SYSTEM_INSTRUCTION = `
 You are the AI Master Planner for NOVA, a premium scheduling application.
@@ -65,7 +67,7 @@ CRITICAL RULES:
   * Unknown/Other -> "violet"
 `;
 
-export async function processUserPrompt(prompt: string, context: string, memoryContext: string = "", modelName: string = "gemini-2.5-flash"): Promise<AIAnalysisResult> {
+export async function processUserPrompt(prompt: string, context: string, memoryContext: string = "", aiModels?: AIModelsSettings): Promise<AIAnalysisResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return {
@@ -79,23 +81,16 @@ export async function processUserPrompt(prompt: string, context: string, memoryC
     };
   }
 
-  const apiModel = modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash";
-  
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: apiModel,
-      contents: [
-        { role: "user", parts: [{ text: `Schedule Context:\n${context}\n\nRelevant Memories:\n${memoryContext}\n\nUser Request: ${prompt}` }] }
-      ],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        temperature: 0.2, // Slightly higher temperature for better reasoning, but still structured
-      }
-    });
-
-    let text = response.text || "{}";
+    const combinedPrompt = `Schedule Context:\n${context}\n\nRelevant Memories:\n${memoryContext}\n\nUser Request: ${prompt}`;
+    
+    let text = await aiRouter.generate(
+      "planner",
+      combinedPrompt,
+      SYSTEM_INSTRUCTION,
+      aiModels,
+      0.2
+    );
     
     // Strip markdown formatting if Gemini included it despite instructions
     if (text.startsWith("```json")) {

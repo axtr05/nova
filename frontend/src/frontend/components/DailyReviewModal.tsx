@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Brain, Check, X, ArrowRight } from "lucide-react";
 import { DailyReviewInput } from "@/types";
 import { DailyReviewResult } from "@/server/ai/memoryGemini";
 import { useMemories } from "@/frontend/hooks/useMemories";
+import { useAuth } from "@/frontend/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +20,7 @@ interface DailyReviewModalProps {
 
 export function DailyReviewModal({ isOpen, onClose, context }: DailyReviewModalProps) {
   const { addMemory } = useMemories();
+  const { user } = useAuth();
   
   const [step, setStep] = useState<"input" | "processing" | "result">("input");
   const [form, setForm] = useState<DailyReviewInput>({
@@ -44,7 +46,7 @@ export function DailyReviewModal({ isOpen, onClose, context }: DailyReviewModalP
       const response = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: form, context })
+        body: JSON.stringify({ answers: form, context, aiModels: user?.aiModels })
       });
 
       if (!response.ok) throw new Error("Failed to process review");

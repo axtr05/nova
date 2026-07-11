@@ -5,7 +5,7 @@ import { AIAnalysisResult } from "@/server/types/actions";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { prompt, context, memoryContext, modelId } = body;
+    const { prompt, context, memoryContext, aiModels } = body;
 
     if (!prompt) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const actionResult = await processUserPrompt(prompt, context || "", memoryContext || "", modelId);
+    const actionResult = await processUserPrompt(prompt, context || "", memoryContext || "", aiModels);
     return NextResponse.json(actionResult);
   } catch (error) {
     console.error("API Route Error:", error);

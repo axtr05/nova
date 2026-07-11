@@ -1,5 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
 import { DailyReviewInput, Memory } from "@/types";
+import { aiRouter } from "./router";
+import { AIModelsSettings } from "@/frontend/types/user";
 
 export interface DailyReviewResult {
   summary: string;
@@ -43,32 +44,19 @@ Guidelines for extracting memories:
 export async function processDailyReview(
   answers: DailyReviewInput,
   context: string,
-  modelName: string = "gemini-2.5-flash"
+  aiModels?: AIModelsSettings
 ): Promise<DailyReviewResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("NOVA Error: GEMINI_API_KEY is missing.");
-  }
-
-  const apiModel = modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash";
-  
   try {
-    const ai = new GoogleGenAI({ apiKey });
     const prompt = `Context (Today's Schedule):\n${context}\n\nDaily Review Answers:\n- Went Well: ${answers.wentWell}\n- Didn't Go Well: ${answers.didNotGoWell}\n- Energy: ${answers.energy}/10\n- Mood: ${answers.mood}/10\n- Remember Tomorrow: ${answers.rememberTomorrow}\n- Additional Notes: ${answers.additionalNotes}`;
     
-    const response = await ai.models.generateContent({
-      model: apiModel,
-      contents: [
-        { role: "user", parts: [{ text: prompt }] }
-      ],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        temperature: 0.3,
-      }
-    });
+    const text = await aiRouter.generate(
+      "dailyReview",
+      prompt,
+      SYSTEM_INSTRUCTION,
+      aiModels,
+      0.3
+    );
 
-    const text = response.text || "{}";
     const parsed = JSON.parse(text) as DailyReviewResult;
     
     return {

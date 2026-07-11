@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let calendarConfigured: boolean | undefined = undefined;
             let syncMode: any = undefined;
             let lastSyncTime: string | undefined = undefined;
+            let aiModels: any = undefined;
             let firestoreProfile: any = null;
 
             if (userSnap.exists()) {
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               calendarConfigured = data.settings?.calendarConfigured;
               syncMode = data.settings?.syncMode;
               lastSyncTime = data.settings?.lastSyncTime;
+              aiModels = data.settings?.aiModels;
             }
 
             const novaUser: NovaUser = {
@@ -57,7 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               googleCalendar,
               calendarConfigured,
               syncMode,
-              lastSyncTime
+              lastSyncTime,
+              aiModels
             };
             
             const sanitizedNovaUser = Object.fromEntries(

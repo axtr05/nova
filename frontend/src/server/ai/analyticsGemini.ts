@@ -1,5 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-import { AIWeeklyReport, AnalyticsSummary, ChartDataPoint, Memory } from "@/types";
+import { AnalyticsSummary, ChartDataPoint, Memory, AIWeeklyReport } from "@/types";
+import { aiRouter } from "./router";
+import { AIModelsSettings } from "@/frontend/types/user";
 
 const SYSTEM_INSTRUCTION = `
 You are the NOVA AI Productivity Analyst. Your goal is to review the user's weekly metrics and memory context and generate a comprehensive Weekly Intelligence Report.
@@ -34,20 +35,12 @@ export async function processWeeklyAnalytics(
   summary: AnalyticsSummary,
   chartData: ChartDataPoint[],
   memories: Pick<Memory, "title" | "content" | "category" | "importance">[],
-  modelName: string = "gemini-2.5-flash"
+  aiModels?: AIModelsSettings
 ): Promise<AIWeeklyReport> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("NOVA Error: GEMINI_API_KEY is missing.");
-  }
-
-  const apiModel = modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash";
   
   let retries = 1;
-  while (retries >= 0) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Weekly Summary:
+  try {
+    const prompt = `Weekly Summary:
 ${JSON.stringify(summary, null, 2)}
 
 Daily Chart Data:
@@ -56,34 +49,22 @@ ${JSON.stringify(chartData, null, 2)}
 Recent Context (Memories):
 ${JSON.stringify(memories, null, 2)}`;
 
-      const response = await ai.models.generateContent({
-        model: apiModel,
-        contents: [
-          { role: "user", parts: [{ text: prompt }] }
-        ],
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          responseMimeType: "application/json",
-          temperature: 0.2, // Low temperature for consistent analysis
-        }
-      });
+    const text = await aiRouter.generate(
+      "analytics",
+      prompt,
+      SYSTEM_INSTRUCTION,
+      aiModels,
+      0.2
+    );
 
-      const text = response.text || "{}";
-      return JSON.parse(text) as AIWeeklyReport;
-    } catch (error: any) {
-      const isTimeout = error.message?.toLowerCase().includes("timeout") || error.code === "ETIMEDOUT" || error.status === 504;
-      if (isTimeout && retries > 0) {
-        console.warn("Analytics generation timed out. Retrying...");
-        retries--;
-        continue;
-      }
-      
-      console.error("Gemini Analytics Error:", error);
-      if (isTimeout) {
-        throw new Error("Analytics is taking longer than expected. Please try again.");
-      }
-      throw new Error("Failed to generate weekly analytics report.");
+    return JSON.parse(text) as AIWeeklyReport;
+  } catch (error: any) {
+    const isTimeout = error.message?.toLowerCase().includes("timeout") || error.code === "ETIMEDOUT" || error.status === 504;
+    
+    console.error("Gemini Analytics Error:", error);
+    if (isTimeout) {
+      throw new Error("Analytics is temporarily unavailable. Please try again shortly.");
     }
+    throw new Error("Failed to generate weekly analytics report.");
   }
-  throw new Error("Analytics is taking longer than expected. Please try again.");
 }

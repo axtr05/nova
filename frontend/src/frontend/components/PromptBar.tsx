@@ -10,6 +10,7 @@ import {
 } from "@/frontend/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import { AIAnalysisResult } from "@/server/types/actions";
+import { useAuth } from "@/frontend/contexts/AuthContext";
 
 
 interface ModelOption {
@@ -33,8 +34,8 @@ interface PromptBarProps {
 }
 
 export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) {
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODELS[0]);
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -51,12 +52,12 @@ export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) 
           prompt,
           context,
           memoryContext,
-          modelId: selectedModel.id
+          aiModels: user?.aiModels
         })
       });
       
       const action = await response.json() as AIAnalysisResult;
-      onAction(action, prompt, selectedModel.id);
+      onAction(action, prompt, "AUTO");
       setPrompt("");
     } catch (error) {
       console.error("Prompt submit error:", error);
@@ -68,7 +69,7 @@ export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) 
         suggestions: [], 
         isError: true, 
         errorMessage: "Failed to connect to NOVA engine." 
-      }, prompt, selectedModel.id);
+      }, prompt, "AUTO");
     } finally {
       setIsLoading(false);
     }
@@ -138,43 +139,10 @@ export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) 
 
         {/* Model Selector & Actions Row */}
         <div className="flex items-center justify-between px-1.5 py-0.5">
-          {/* Dropdown Menu for Model Selector */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="h-7 px-2.5 rounded-lg bg-white/3 border border-white/5 hover:bg-white/6 hover:border-white/10 text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer outline-none"
-            >
-              <Cpu className="h-3 w-3 text-violet-400" />
-              {selectedModel.name}
-              <span className="text-[9px] uppercase tracking-wider bg-violet-500/10 px-1 py-0.5 rounded text-violet-300 border border-violet-500/20 font-bold scale-90">
-                {selectedModel.badge}
-              </span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 glass-card border-white/10 text-slate-200 p-1.5 rounded-xl shadow-2xl">
-              <div className="text-[10px] uppercase font-bold tracking-widest text-slate-400 px-2 py-1.5 flex items-center gap-1">
-                <Wand2 className="h-3 w-3 text-violet-400" /> AI Planning Engines
-              </div>
-              {MODELS.map((model) => (
-                <DropdownMenuItem
-                  key={model.id}
-                  onClick={() => setSelectedModel(model)}
-                  className={`flex flex-col items-start gap-0.5 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer text-slate-300 hover:text-white ${
-                    selectedModel.id === model.id
-                      ? "bg-violet-600/20 text-white font-semibold border-l-2 border-violet-500"
-                      : "hover:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-xs font-semibold">{model.name}</span>
-                    <span className="text-[8px] font-bold uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded text-slate-300">
-                      {model.badge}
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-slate-500 font-medium line-clamp-1">{model.desc}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-lg select-none">
+            <Cpu className="h-3 w-3" />
+            AI Router (AUTO)
+          </div>
 
           {/* Prompt Assist Help Text */}
           <span className="text-[10px] text-slate-500 font-medium tracking-wide pr-1 select-none flex items-center gap-1">
