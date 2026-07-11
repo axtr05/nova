@@ -18,6 +18,7 @@ import { MemoryViewer } from "@/frontend/components/MemoryViewer";
 import { useMemories } from "@/frontend/hooks/useMemories";
 import { Memory } from "@/types";
 import { FirstLoginDialog } from "@/frontend/components/FirstLoginDialog";
+import { ClarificationDialog } from "@/frontend/components/ClarificationDialog";
 import { SettingsModal } from "@/frontend/components/SettingsModal";
 import { SyncConflictModal } from "@/frontend/components/SyncConflictModal";
 
@@ -26,6 +27,7 @@ export default function Home() {
   const { memories, togglePin, deleteMemory } = useMemories();
   
   const [view, setView] = useState<ViewType>("week");
+  const [lastModifiedEventTitle, setLastModifiedEventTitle] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -43,6 +45,13 @@ export default function Home() {
   });
 
   const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  
+  const [clarificationState, setClarificationState] = useState<{
+    request: { question: string; type: "selection" | "input"; options?: string[] };
+    originalPrompt: string;
+    modelId: string;
+  } | null>(null);
+  const [isClarifying, setIsClarifying] = useState(false);
 
   const toggleCompleteEvent = (event: CalendarEvent) => {
     updateEvent({ ...event, completed: !event.completed });
@@ -94,6 +103,7 @@ export default function Home() {
             color: action.color || "violet"
           });
           toast.success("Event Created", { description: action.message || `Added ${action.title}` });
+          setLastModifiedEventTitle(action.title);
           break;
 
         case "update_event":
@@ -142,6 +152,7 @@ export default function Home() {
           }
 
           updateEvent(updatedEvent);
+          setLastModifiedEventTitle(updatedEvent.title);
           toast.success("Event Updated", { description: action.message || `Updated ${updatedEvent.title}` });
           break;
 
@@ -187,16 +198,17 @@ export default function Home() {
     });
   };
 
-  const handleAnalysisResult = (result: AIAnalysisResult) => {
+  const handleAnalysisResult = (result: AIAnalysisResult, originalPrompt: string, modelId: string) => {
     if (result.isError) {
       toast.error("Analysis Failed", { description: result.errorMessage });
       return;
     }
 
-    if (result.missing_information_question) {
-      toast("NOVA needs more details", {
-        description: result.missing_information_question,
-        duration: 8000,
+    if (result.clarification_request) {
+      setClarificationState({
+        request: result.clarification_request,
+        originalPrompt,
+        modelId
       });
       return;
     }
@@ -210,6 +222,39 @@ export default function Home() {
     setAnalysisResult(result);
   };
 
+  const handleResolveClarification = async (answer: string) => {
+    if (!clarificationState) return;
+    const { originalPrompt, modelId } = clarificationState;
+    const newPrompt = `${originalPrompt}\n[User Clarification: ${answer}]`;
+    
+    setClarificationState(null);
+    setIsClarifying(true);
+    
+    toast.info("Resuming request...", { id: "clarification-resume" });
+    
+    try {
+      const response = await fetch("/api/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: newPrompt,
+          context: aiContext,
+          memoryContext: getRelevantMemories(newPrompt),
+          modelId
+        })
+      });
+      
+      const action = await response.json() as AIAnalysisResult;
+      toast.dismiss("clarification-resume");
+      handleAnalysisResult(action, newPrompt, modelId);
+    } catch (error) {
+      toast.dismiss("clarification-resume");
+      toast.error("Failed to connect to NOVA engine.");
+    } finally {
+      setIsClarifying(false);
+    }
+  };
+
   const aiContext = JSON.stringify({
     currentTime: format(new Date(), "yyyy-MM-dd'T'HH:mm:ssXXX"),
     events: events.map(e => ({
@@ -221,8 +266,8 @@ export default function Home() {
       priority: e.priority || "medium",
       tags: e.tags || [],
       isCompleted: !!e.completed,
-      source: e.source || "NOVA"
-    }))
+    })),
+    lastModifiedEventTitle: lastModifiedEventTitle
   });
 
   // Relevance filtering logic for memories
@@ -356,6 +401,17 @@ export default function Home() {
           conflicts={conflicts || []}
           onResolve={resolveConflicts}
         />
+        
+        {clarificationState && (
+          <ClarificationDialog
+            isOpen={true}
+            question={clarificationState.request.question}
+            type={clarificationState.request.type}
+            options={clarificationState.request.options}
+            onResolve={handleResolveClarification}
+            onCancel={() => setClarificationState(null)}
+          />
+        )}
         
         <FirstLoginDialog />
       </div>

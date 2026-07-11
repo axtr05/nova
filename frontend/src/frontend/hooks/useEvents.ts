@@ -52,7 +52,7 @@ export function useEvents() {
   useEffect(() => {
     const handlePushConflict = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (user && (user.syncMode === "two_way" || user.syncMode === "nova_to_google")) {
+      if (user && (user.googleCalendar?.syncMode === "two_way" || user.googleCalendar?.syncMode === "nova_to_google")) {
          syncOrchestrator.pushLocalUpdate(user.uid, customEvent.detail, 0);
       }
     };
@@ -101,7 +101,22 @@ export function useEvents() {
     const unsubscribe = plannerService.subscribeToEvents(
       user.uid,
       (fetchedEvents) => {
-        setEvents(fetchedEvents);
+        // Deduplicate events by googleEventId, externalId, hash, and id to prevent rendering duplicates
+        const deduplicated = fetchedEvents.reduce((acc, current) => {
+          const isDuplicate = acc.find(
+            (item) =>
+              (item.id === current.id) ||
+              (item.googleEventId && current.googleEventId && item.googleEventId === current.googleEventId) ||
+              (item.externalId && current.externalId && item.externalId === current.externalId) ||
+              (!item.googleEventId && !current.googleEventId && item.title === current.title && new Date(item.start).getTime() === new Date(current.start).getTime() && new Date(item.end).getTime() === new Date(current.end).getTime())
+          );
+          if (!isDuplicate) {
+            acc.push(current);
+          }
+          return acc;
+        }, [] as CalendarEvent[]);
+        
+        setEvents(deduplicated);
         setIsLoaded(true);
       },
       (error: any) => {
@@ -135,7 +150,7 @@ export function useEvents() {
     // but we can fire and forget the mutation
     try {
       await plannerService.createEvent(user.uid, newEvent);
-      if (user.syncMode === "two_way" || user.syncMode === "nova_to_google") {
+      if (user.googleCalendar?.syncMode === "two_way" || user.googleCalendar?.syncMode === "nova_to_google") {
         syncOrchestrator.pushLocalUpdate(user.uid, newEvent, 0); // No debounce on create
       }
     } catch (err: any) {
@@ -149,7 +164,7 @@ export function useEvents() {
     if (!user) return;
     try {
       await plannerService.updateEvent(user.uid, updatedEvent);
-      if (user.syncMode === "two_way" || user.syncMode === "nova_to_google") {
+      if (user.googleCalendar?.syncMode === "two_way" || user.googleCalendar?.syncMode === "nova_to_google") {
         syncOrchestrator.pushLocalUpdate(user.uid, updatedEvent);
       }
     } catch (err: any) {
@@ -163,7 +178,7 @@ export function useEvents() {
     try {
       const eventToDelete = events.find(e => e.id === id);
       await plannerService.deleteEvent(user.uid, id);
-      if (eventToDelete?.googleEventId && (user.syncMode === "two_way" || user.syncMode === "nova_to_google")) {
+      if (eventToDelete?.googleEventId && (user.googleCalendar?.syncMode === "two_way" || user.googleCalendar?.syncMode === "nova_to_google")) {
         syncOrchestrator.pushLocalDelete(eventToDelete.googleEventId);
       }
     } catch (err: any) {

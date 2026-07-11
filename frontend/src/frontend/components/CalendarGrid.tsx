@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { CalendarEvent, ViewType } from "@/types";
-import { Clock, Grab } from "lucide-react";
+import { Clock, Grab, Globe } from "lucide-react";
 import {
   format,
   addDays,
@@ -13,6 +13,7 @@ import {
   getMinutes,
   isSameDay,
 } from "date-fns";
+import { resolveColor, getEventColorClasses } from "@/frontend/utils/colors";
 
 interface CalendarGridProps {
   view: ViewType;
@@ -209,21 +210,7 @@ export function CalendarGrid({
     };
   }, [activeDrag, activeResize, events, view, onUpdateEvent]);
 
-  // Color classes helper
-  const getEventColorClasses = (color?: string) => {
-    switch (color) {
-      case "blue":
-        return "bg-blue-500/15 border-blue-500/35 text-blue-200 border-l-[3px] border-l-blue-500 hover:bg-blue-500/20";
-      case "emerald":
-        return "bg-emerald-500/15 border-emerald-500/35 text-emerald-200 border-l-[3px] border-l-emerald-500 hover:bg-emerald-500/20";
-      case "pink":
-        return "bg-pink-500/15 border-pink-500/35 text-pink-200 border-l-[3px] border-l-pink-500 hover:bg-pink-500/20";
-      case "amber":
-        return "bg-amber-500/15 border-amber-500/35 text-amber-200 border-l-[3px] border-l-amber-500 hover:bg-amber-500/20";
-      default: // violet
-        return "bg-violet-500/15 border-violet-500/35 text-violet-200 border-l-[3px] border-l-violet-500 hover:bg-violet-500/20";
-    }
-  };
+  // removed local color helper
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-slate-950/20">
@@ -352,7 +339,7 @@ export function CalendarGrid({
                         }}
                         className={`absolute left-1.5 right-2.5 px-2.5 py-1.5 rounded-xl border flex flex-col overflow-hidden shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl group cursor-grab active:cursor-grabbing ${
                           isBeingDragged ? "opacity-45 scale-[0.98] shadow-2xl z-30" : "z-10"
-                        } ${getEventColorClasses(evt.color)}`}
+                        } ${getEventColorClasses(resolveColor(evt))}`}
                         style={{
                           top: `${top}px`,
                           height: `${height}px`,
@@ -361,10 +348,13 @@ export function CalendarGrid({
                         {/* Event Card Content */}
                         <div className="min-w-0 flex-1 flex flex-col gap-1">
                           <div className="flex items-start justify-between gap-1">
-                            <span className="text-[15px] font-bold leading-tight truncate select-none block text-white drop-shadow-sm">
+                            <span className="text-[15px] font-bold leading-tight truncate select-none block text-white drop-shadow-sm flex-1">
                               {evt.title}
                             </span>
-                            <Grab className="h-4 w-4 opacity-0 group-hover:opacity-40 transition-opacity flex-shrink-0 text-white mix-blend-overlay" />
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0 text-white mix-blend-overlay">
+                              {evt.source === "Google Calendar" && <Globe className="h-3.5 w-3.5" />}
+                              <Grab className="h-4 w-4" />
+                            </div>
                           </div>
                           
                           {/* Clock / Time Label */}

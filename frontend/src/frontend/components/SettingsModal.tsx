@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/frontend/contexts/AuthContext";
 import { getAuth } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/services/firebase/firebaseService";
+import { db, sanitizeFirestoreData } from "@/services/firebase/firebaseService";
 import { toast } from "sonner";
 import { Calendar, Settings as SettingsIcon, RefreshCcw, X, Loader2, AlertTriangle } from "lucide-react";
 import { syncOrchestrator } from "@/services/sync/syncOrchestrator";
-import { hasValidCalendarToken } from "@/services/sync/googleCalendarSync";
+import { hasValidCalendarToken, isPopupActive } from "@/services/sync/googleCalendarSync";
 import { SyncMode } from "@/frontend/types/user";
 
 interface SettingsModalProps {
@@ -29,24 +29,35 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [disconnectMode, setDisconnectMode] = useState<"none" | "keep" | "remove">("none");
 
+  React.useEffect(() => {
+    const handlePopupState = () => setIsConnecting(isPopupActive);
+    window.addEventListener("nova:popup-state-change", handlePopupState);
+    return () => window.removeEventListener("nova:popup-state-change", handlePopupState);
+  }, []);
+
   if (!user) return null;
 
   const auth = getAuth();
   const firebaseUser = auth.currentUser;
   const isGoogleUser = firebaseUser?.providerData.some(p => p.providerId === "google.com");
-  const isConnected = !!user.calendarConfigured && user.syncMode !== "none";
+  const isConnected = !!user.googleCalendar?.connected;
+  const syncMode = user.googleCalendar?.syncMode || "none";
   const needsReconnect = isConnected && !hasValidCalendarToken();
 
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
       await syncOrchestrator.connectCalendar();
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", user.uid), sanitizeFirestoreData({
         settings: {
-          calendarConfigured: true,
-          syncMode: "two_way"
+          googleCalendar: {
+            connected: true,
+            syncMode: "two_way",
+            syncEnabled: true,
+            connectedAt: new Date().toISOString()
+          }
         }
-      }, { merge: true });
+      }), { merge: true });
       toast.success("Google Calendar Connected!");
       // Resume background sync immediately
       window.dispatchEvent(new Event("nova:manual-sync"));
@@ -59,11 +70,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleChangeSyncMode = async (mode: SyncMode) => {
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", user.uid), sanitizeFirestoreData({
         settings: {
-          syncMode: mode
+          googleCalendar: {
+            ...user.googleCalendar,
+            syncMode: mode
+          }
         }
-      }, { merge: true });
+      }), { merge: true });
       toast.success("Sync Mode Updated");
     } catch (e) {
       toast.error("Failed to update sync mode");
@@ -72,11 +86,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleDisconnect = async (action: "keep" | "remove") => {
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", user.uid), sanitizeFirestoreData({
         settings: {
-          syncMode: "none"
+          googleCalendar: {
+            connected: false,
+            syncMode: "none",
+            syncEnabled: false
+          }
         }
-      }, { merge: true });
+      }), { merge: true });
       
       if (action === "remove") {
         // Here we would typically trigger an API endpoint or background function 
@@ -129,13 +147,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <p className="text-sm text-red-200 text-center font-medium">
                   Google Calendar authorization expired.<br />Reconnect to continue syncing.
                 </p>
-                <div className="flex gap-2 w-full mt-2">
-                  <Button onClick={handleConnect} disabled={isConnecting} className="w-full bg-gradient-nova hover:bg-gradient-nova-hover text-white shadow-lg shadow-violet-500/20">
+                <div className="flex w-full mt-4">
+                  <Button onClick={handleConnect} disabled={isConnecting} className="w-full h-8 px-3 bg-gradient-nova hover:bg-gradient-nova-hover text-white shadow-lg shadow-violet-500/20">
                     {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
                     Reconnect
-                  </Button>
-                  <Button onClick={() => setDisconnectMode("remove")} disabled={isConnecting} variant="destructive" className="w-full bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/60">
-                    Disconnect
                   </Button>
                 </div>
               </div>
@@ -182,7 +197,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         key={mode.id}
                         onClick={() => handleChangeSyncMode(mode.id as SyncMode)}
                         className={`p-2 rounded-lg border text-xs font-medium transition-all ${
-                          user.syncMode === mode.id
+                          syncMode === mode.id
                             ? "bg-violet-500/20 border-violet-500/40 text-violet-300 shadow-[0_0_10px_rgba(139,92,246,0.2)]"
                             : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200"
                         }`}
@@ -193,18 +208,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-slate-500">
-                    Last Sync: {user.lastSyncTime ? new Date(user.lastSyncTime).toLocaleString() : "Never"}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 gap-3 border-t border-white/5">
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Last Sync: {user.googleCalendar?.lastSuccessfulSync ? new Date(user.googleCalendar.lastSuccessfulSync).toLocaleString() : "Never"}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto">
                     <Button onClick={() => {
                       toast.info("Syncing with Google Calendar...");
                       window.dispatchEvent(new Event("nova:manual-sync"));
-                    }} variant="outline" className="h-8 px-3 text-xs bg-white/5 border-white/10 text-slate-300 hover:text-white">
+                    }} variant="outline" className="flex-1 h-8 px-3 text-xs bg-white/5 border-white/10 text-slate-300 hover:text-white">
                       <RefreshCcw className="h-3 w-3 mr-1.5" /> Sync Now
                     </Button>
-                    <Button onClick={() => setDisconnectMode("remove")} variant="destructive" className="h-8 px-3 text-xs bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/60">
+                    <Button onClick={() => setDisconnectMode("remove")} variant="destructive" className="flex-1 h-8 px-3 text-xs bg-red-950/40 border border-red-500/30 text-red-400 hover:bg-red-900/60">
                       Disconnect
                     </Button>
                   </div>

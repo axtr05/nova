@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/firebaseService";
 import { CalendarEvent } from "@/types";
+import { sanitizeFirestoreData } from "../firebase/firebaseService";
 
 export const plannerService = {
   getEventsCollection(uid: string) {
@@ -23,7 +24,7 @@ export const plannerService = {
 
   async createEvent(uid: string, event: CalendarEvent): Promise<void> {
     const eventRef = this.getEventDoc(uid, event.id);
-    const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
+    const sanitizedEvent = sanitizeFirestoreData(event);
     await setDoc(eventRef, {
       ...sanitizedEvent,
       createdAt: serverTimestamp(),
@@ -33,7 +34,7 @@ export const plannerService = {
 
   async updateEvent(uid: string, event: CalendarEvent): Promise<void> {
     const eventRef = this.getEventDoc(uid, event.id);
-    const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
+    const sanitizedEvent = sanitizeFirestoreData(event);
     await updateDoc(eventRef, {
       ...sanitizedEvent,
       updatedAt: serverTimestamp(),
@@ -68,7 +69,7 @@ export const plannerService = {
     const batch = writeBatch(db);
     for (const event of localEvents) {
       const eventRef = this.getEventDoc(uid, event.id);
-      const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
+      const sanitizedEvent = sanitizeFirestoreData(event);
       batch.set(eventRef, {
         ...sanitizedEvent,
         createdAt: serverTimestamp(),
@@ -82,7 +83,7 @@ export const plannerService = {
     const batch = writeBatch(db);
     for (const event of events) {
       const eventRef = this.getEventDoc(uid, event.id);
-      const sanitizedEvent = Object.fromEntries(Object.entries(event).filter(([_, v]) => v !== undefined));
+      const sanitizedEvent = sanitizeFirestoreData(event);
       batch.set(eventRef, {
         ...sanitizedEvent,
         updatedAt: serverTimestamp(),

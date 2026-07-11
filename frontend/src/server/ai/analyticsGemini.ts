@@ -43,9 +43,11 @@ export async function processWeeklyAnalytics(
 
   const apiModel = modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash";
   
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Weekly Summary:
+  let retries = 1;
+  while (retries >= 0) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Weekly Summary:
 ${JSON.stringify(summary, null, 2)}
 
 Daily Chart Data:
@@ -54,22 +56,34 @@ ${JSON.stringify(chartData, null, 2)}
 Recent Context (Memories):
 ${JSON.stringify(memories, null, 2)}`;
 
-    const response = await ai.models.generateContent({
-      model: apiModel,
-      contents: [
-        { role: "user", parts: [{ text: prompt }] }
-      ],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        temperature: 0.2, // Low temperature for consistent analysis
-      }
-    });
+      const response = await ai.models.generateContent({
+        model: apiModel,
+        contents: [
+          { role: "user", parts: [{ text: prompt }] }
+        ],
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: "application/json",
+          temperature: 0.2, // Low temperature for consistent analysis
+        }
+      });
 
-    const text = response.text || "{}";
-    return JSON.parse(text) as AIWeeklyReport;
-  } catch (error) {
-    console.error("Gemini Analytics Error:", error);
-    throw new Error("Failed to generate weekly analytics report.");
+      const text = response.text || "{}";
+      return JSON.parse(text) as AIWeeklyReport;
+    } catch (error: any) {
+      const isTimeout = error.message?.toLowerCase().includes("timeout") || error.code === "ETIMEDOUT" || error.status === 504;
+      if (isTimeout && retries > 0) {
+        console.warn("Analytics generation timed out. Retrying...");
+        retries--;
+        continue;
+      }
+      
+      console.error("Gemini Analytics Error:", error);
+      if (isTimeout) {
+        throw new Error("Analytics is taking longer than expected. Please try again.");
+      }
+      throw new Error("Failed to generate weekly analytics report.");
+    }
   }
+  throw new Error("Analytics is taking longer than expected. Please try again.");
 }

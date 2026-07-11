@@ -52,7 +52,7 @@ export function MemoryViewer({ isOpen, onClose, memories, onTogglePin, onDelete 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col overflow-hidden glass-card text-slate-100 border-white/10 shadow-2xl p-0 rounded-2xl">
+      <DialogContent showCloseButton={false} className="sm:max-w-[800px] h-[80vh] flex flex-col overflow-hidden glass-card text-slate-100 border-white/10 shadow-2xl p-0 rounded-2xl">
         
         {/* Header & Search */}
         <div className="flex flex-col border-b border-white/10 bg-white/5 shrink-0">

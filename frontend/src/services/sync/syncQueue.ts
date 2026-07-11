@@ -1,6 +1,7 @@
 import { CalendarEvent } from "@/types";
 import { plannerService } from "../planner/plannerService";
 import { createGoogleEvent, updateGoogleEvent, deleteGoogleEvent, hasValidCalendarToken } from "./googleCalendarSync";
+import { format } from "date-fns";
 
 const updateTimeouts: Record<string, NodeJS.Timeout> = {};
 const pendingUpdates: Record<string, Partial<CalendarEvent>> = {};
@@ -24,6 +25,8 @@ export const queueSyncUpdate = (
   if (updateTimeouts[localId]) {
     clearTimeout(updateTimeouts[localId]);
   }
+  
+  console.log(`[SYNC] Debouncing update for local event ${localId} for ${delayMs}ms`, localEvent);
 
   updateTimeouts[localId] = setTimeout(async () => {
     const finalEvent = pendingUpdates[localId] as CalendarEvent;
@@ -32,33 +35,49 @@ export const queueSyncUpdate = (
 
     try {
       if (!hasValidCalendarToken()) {
-        console.warn("Skipping sync update: No valid calendar token.");
+        console.warn("[SYNC] Skipping sync update: No valid calendar token.");
         return;
       }
 
+      console.log(`[SYNC] Executing queued update for ${localId} to Google Calendar`);
+
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      const formatGDate = (isoString: string) => format(new Date(isoString), "yyyy-MM-dd'T'HH:mm:ssXXX");
+
       if (finalEvent.googleEventId) {
-        await updateGoogleEvent(finalEvent.googleEventId, {
+        const updatedGEvent = await updateGoogleEvent(finalEvent.googleEventId, {
           summary: finalEvent.title,
           description: finalEvent.description,
-          start: { dateTime: finalEvent.start },
-          end: { dateTime: finalEvent.end },
+          start: { dateTime: formatGDate(finalEvent.start), timeZone },
+          end: { dateTime: formatGDate(finalEvent.end), timeZone },
+        });
+        
+        console.log(`[SYNC] Successfully updated Google Event ${finalEvent.googleEventId}`);
+        
+        await plannerService.updateEvent(uid, {
+          ...finalEvent,
+          lastSyncHash: updatedGEvent.updated
         });
       } else {
         const gEvent = await createGoogleEvent({
           summary: finalEvent.title,
           description: finalEvent.description,
-          start: { dateTime: finalEvent.start },
-          end: { dateTime: finalEvent.end },
+          start: { dateTime: formatGDate(finalEvent.start), timeZone },
+          end: { dateTime: formatGDate(finalEvent.end), timeZone },
         });
+        
+        console.log(`[SYNC] Created new Google Event ${gEvent.id} for local event ${localId}`);
 
         await plannerService.updateEvent(uid, {
           ...finalEvent,
           googleEventId: gEvent.id,
           source: "Google Calendar",
+          lastSyncHash: gEvent.updated
         });
       }
     } catch (e) {
-      console.error("Failed to push event via syncQueue", e);
+      console.error(`[SYNC] Failed to push event ${localId} via syncQueue:`, e);
     }
   }, delayMs);
 };
@@ -66,11 +85,13 @@ export const queueSyncUpdate = (
 export const queueSyncDelete = async (googleEventId: string) => {
   try {
     if (!hasValidCalendarToken()) {
-      console.warn("Skipping sync delete: No valid calendar token.");
+      console.warn("[SYNC] Skipping sync delete: No valid calendar token.");
       return;
     }
+    console.log(`[SYNC] Executing queued delete for Google Event ${googleEventId}`);
     await deleteGoogleEvent(googleEventId);
+    console.log(`[SYNC] Successfully deleted Google Event ${googleEventId}`);
   } catch (e) {
-    console.error("Failed to delete from syncQueue", e);
+    console.error(`[SYNC] Failed to delete googleEventId ${googleEventId} from syncQueue:`, e);
   }
 };

@@ -117,7 +117,7 @@ export function EventModal({
       const initialColor = event ? event.color || "violet" : "violet";
       
       setColor(initialColor);
-      setIsManualColor(event ? initialColor !== initialAutoColor : false);
+      setIsManualColor(event?.isManualColor ?? false);
       
       setPriority(event ? event.priority || "medium" : "medium");
       setCompleted(event ? !!event.completed : false);
@@ -156,6 +156,7 @@ export function EventModal({
       start: startISO,
       end: endISO,
       color,
+      isManualColor,
       notes,
       checklist,
       priority,

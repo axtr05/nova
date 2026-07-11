@@ -2,9 +2,10 @@
 
 import React from "react";
 import { CalendarEvent } from "@/types";
-import { CheckCircle2, Circle, Clock, Award, BookOpen, Smile } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Award, BookOpen, Smile, Globe } from "lucide-react";
 import { format, parseISO, isAfter } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { resolveColor, getColorClass } from "@/frontend/utils/colors";
 
 interface SidebarProps {
   events: CalendarEvent[];
@@ -76,19 +77,6 @@ export function Sidebar({
   
   const totalScheduledHours = totalScheduledMs / (1000 * 60 * 60);
   const freeHours = Math.max(0, Math.round((24 - totalScheduledHours) * 10) / 10);
-
-  const getColorClass = (color?: string) => {
-    switch (color) {
-      case "blue": return "text-blue-400 bg-blue-500/10 border-blue-500/25";
-      case "emerald": return "text-emerald-400 bg-emerald-500/10 border-emerald-500/25";
-      case "pink": return "text-pink-400 bg-pink-500/10 border-pink-500/25";
-      case "amber": return "text-amber-400 bg-amber-500/10 border-amber-500/25";
-      case "cyan": return "text-cyan-400 bg-cyan-500/10 border-cyan-500/25";
-      case "orange": return "text-orange-400 bg-orange-500/10 border-orange-500/25";
-      case "red": return "text-red-400 bg-red-500/10 border-red-500/25";
-      default: return "text-violet-400 bg-violet-500/10 border-violet-500/25";
-    }
-  };
 
   return (
     <aside className="w-[360px] h-full flex flex-col gap-8 p-8 border-l border-white/5 bg-slate-950/40 backdrop-blur-xl">
@@ -173,10 +161,11 @@ export function Sidebar({
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <span className={`text-sm font-bold block truncate transition-all text-slate-200 ${
+                        <span className={`text-sm font-bold truncate transition-all flex items-center gap-2 text-slate-200 ${
                           isCompleted ? "line-through text-slate-500 decoration-slate-600" : ""
                         }`}>
                           {evt.title}
+                          {evt.source === "Google Calendar" && <Globe className="h-3.5 w-3.5 opacity-50" />}
                         </span>
                         <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 mt-1.5 font-mono">
                           <Clock className="h-3.5 w-3.5 text-slate-500" />
@@ -222,6 +211,7 @@ export function Sidebar({
                   <div className="flex flex-col gap-1 min-w-0 flex-1 pr-4">
                     <span className="text-sm font-bold text-slate-200 truncate flex items-center gap-2">
                       {evt.title}
+                      {evt.source === "Google Calendar" && <Globe className="h-3.5 w-3.5 opacity-50" />}
                       {evt.priority === 'do_it_now' && (
                         <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-400 border border-amber-400/50 shadow-[0_0_10px_rgba(251,191,36,0.3)]">
                           Urgent
@@ -230,7 +220,7 @@ export function Sidebar({
                     </span>
                     <span className="text-xs text-slate-400 font-semibold">{timeStr}</span>
                   </div>
-                  <div className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-extrabold shrink-0 ${getColorClass(evt.color)}`}>
+                  <div className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-extrabold shrink-0 ${getColorClass(resolveColor(evt))}`}>
                     {dateStr}
                   </div>
                 </div>

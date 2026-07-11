@@ -75,7 +75,11 @@ export interface AIAnalysisResult {
   free_time: string[];
   suggestions: AISuggestion[];
   requires_confirmation?: boolean;
-  missing_information_question?: string;
+  clarification_request?: {
+    question: string;
+    type: "selection" | "input";
+    options?: string[];
+  };
   isError?: boolean;
   errorMessage?: string;
 }

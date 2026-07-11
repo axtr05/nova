@@ -27,7 +27,7 @@ const MODELS: ModelOption[] = [
 ];
 
 interface PromptBarProps {
-  onAction: (result: AIAnalysisResult) => void;
+  onAction: (result: AIAnalysisResult, originalPrompt: string, modelId: string) => void;
   context: string;
   memoryContext: string;
 }
@@ -56,7 +56,7 @@ export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) 
       });
       
       const action = await response.json() as AIAnalysisResult;
-      onAction(action);
+      onAction(action, prompt, selectedModel.id);
       setPrompt("");
     } catch (error) {
       console.error("Prompt submit error:", error);
@@ -68,7 +68,7 @@ export function PromptBar({ onAction, context, memoryContext }: PromptBarProps) 
         suggestions: [], 
         isError: true, 
         errorMessage: "Failed to connect to NOVA engine." 
-      });
+      }, prompt, selectedModel.id);
     } finally {
       setIsLoading(false);
     }

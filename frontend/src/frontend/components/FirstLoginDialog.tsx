@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/frontend/contexts/AuthContext";
 import { getAuth } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/services/firebase/firebaseService";
+import { db, sanitizeFirestoreData } from "@/services/firebase/firebaseService";
 import { syncOrchestrator } from "@/services/sync/syncOrchestrator";
 import { toast } from "sonner";
 import { Calendar, RefreshCcw, Loader2 } from "lucide-react";
+import { isPopupActive } from "@/services/sync/googleCalendarSync";
 
 export function FirstLoginDialog() {
   const { user } = useAuth();
@@ -28,9 +29,13 @@ export function FirstLoginDialog() {
     const firebaseUser = auth.currentUser;
     const isGoogleUser = firebaseUser?.providerData.some(p => p.providerId === "google.com");
 
-    if (user && isGoogleUser && user.calendarConfigured !== true) {
+    if (user && isGoogleUser && user.googleCalendar === undefined && user.calendarConfigured === undefined) {
       setIsOpen(true);
     }
+    
+    const handlePopupState = () => setIsConnecting(isPopupActive);
+    window.addEventListener("nova:popup-state-change", handlePopupState);
+    return () => window.removeEventListener("nova:popup-state-change", handlePopupState);
   }, [user]);
 
   const handleSkip = async () => {
@@ -38,12 +43,15 @@ export function FirstLoginDialog() {
     try {
       setIsOpen(false);
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
+      await setDoc(userRef, sanitizeFirestoreData({
         settings: {
-          calendarConfigured: true,
-          syncMode: "none"
+          googleCalendar: {
+            connected: false,
+            syncMode: "none",
+            syncEnabled: false
+          }
         }
-      }, { merge: true });
+      }), { merge: true });
     } catch (e) {
       console.error(e);
     }
@@ -56,12 +64,16 @@ export function FirstLoginDialog() {
       await syncOrchestrator.connectCalendar();
       
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
+      await setDoc(userRef, sanitizeFirestoreData({
         settings: {
-          calendarConfigured: true,
-          syncMode: "two_way" // default when they click connect initially
+          googleCalendar: {
+            connected: true,
+            syncMode: "two_way",
+            syncEnabled: true,
+            connectedAt: new Date().toISOString()
+          }
         }
-      }, { merge: true });
+      }), { merge: true });
       
       toast.success("Calendar Connected!", { description: "You can change sync settings in your profile." });
       // Resume background sync immediately

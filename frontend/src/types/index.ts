@@ -14,6 +14,7 @@ export interface CalendarEvent {
   start: string; // ISO String format
   end: string;   // ISO String format
   color?: string;
+  isManualColor?: boolean;
   completed?: boolean;
   notes?: string;
   checklist?: ChecklistItem[];
@@ -31,6 +32,9 @@ export interface CalendarEvent {
   aiSummary?: string;
   source?: EventSource;
   googleEventId?: string;
+  externalId?: string;
+  lastSyncHash?: string;
+  updatedAt?: any; // Firestore Timestamp or string
 }
 
 export type ViewType = "week" | "day";

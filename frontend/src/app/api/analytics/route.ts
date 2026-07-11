@@ -15,7 +15,13 @@ export async function POST(req: Request) {
 
     const report = await processWeeklyAnalytics(summary, chartData, memories || [], modelId);
     return NextResponse.json(report);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "Analytics is taking longer than expected. Please try again.") {
+      return NextResponse.json(
+        { message: error.message },
+        { status: 504 }
+      );
+    }
     console.error("Analytics API Route Error:", error);
     return NextResponse.json(
       { message: "Failed to generate analytics report." },
