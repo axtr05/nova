@@ -17,6 +17,7 @@ interface NavbarProps {
   setCurrentDate: (date: Date) => void;
   onOpenMemory: () => void;
   onOpenSettings: () => void;
+  onOpenReview: () => void;
 }
 
 export function Navbar({
@@ -26,6 +27,7 @@ export function Navbar({
   setCurrentDate,
   onOpenMemory,
   onOpenSettings,
+  onOpenReview,
 }: NavbarProps) {
   const { user } = useAuth();
   const [imgError, setImgError] = React.useState(false);
@@ -164,12 +166,20 @@ export function Navbar({
         </div>
 
         <button
-          onClick={onOpenMemory}
+          onClick={onOpenReview}
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:text-white hover:bg-orange-500/20 transition-colors"
+          title="Daily Review"
+        >
+          <Sparkles className="h-4.5 w-4.5" />
+        </button>
+
+        <Link
+          href="/memories"
           className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:text-white hover:bg-violet-500/20 transition-colors"
-          title="AI Memory Viewer"
+          title="Memory Manager"
         >
           <Brain className="h-4.5 w-4.5" />
-        </button>
+        </Link>
 
         <Link
           href="/insights"

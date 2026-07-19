@@ -67,6 +67,16 @@ export function useMemories() {
     await memoryService.deleteMemory(user.uid, id);
   };
 
+  const deleteMultipleMemories = async (ids: string[]) => {
+    if (!user) return;
+    await Promise.all(ids.map(id => memoryService.deleteMemory(user.uid, id)));
+  };
+
+  const clearAllMemories = async () => {
+    if (!user) return;
+    await Promise.all(memories.map(m => memoryService.deleteMemory(user.uid, m.id)));
+  };
+
   const togglePin = async (memory: Memory) => {
     if (!user) return;
     await memoryService.updateMemory(user.uid, memory.id, { isPinned: !memory.isPinned });
@@ -78,6 +88,8 @@ export function useMemories() {
     addMemory,
     updateMemory,
     deleteMemory,
+    deleteMultipleMemories,
+    clearAllMemories,
     togglePin
   };
 }

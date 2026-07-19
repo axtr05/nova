@@ -329,6 +329,7 @@ export default function Home() {
           setCurrentDate={setCurrentDate}
           onOpenMemory={() => setIsMemoryViewerOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenReview={() => setIsReviewOpen(true)}
         />
 
         {/* Central Content Area */}

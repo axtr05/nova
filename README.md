@@ -130,6 +130,35 @@ To enable the Two-Way Google Calendar synchronization in NOVA:
 ### Sync Orchestrator Architecture
 All synchronization logic is managed centrally via `src/services/sync/syncOrchestrator.ts`. UI components never interface directly with external Calendar APIs. The Sync Orchestrator seamlessly manages debouncing (`syncQueue.ts`), offline detection, secure in-memory OAuth tokens (`googleCalendarSync.ts`), and drift conflicts (`conflictResolver.ts`).
 
+## 🧠 Prompt Registry Architecture
+
+NOVA centralizes all AI prompts into a dedicated **Prompt Registry** located in `src/server/ai/prompts/`. 
+
+### Why Centralize Prompts?
+- **Decoupling**: Prevents AI execution logic (`router.ts`) from being cluttered by massive template strings.
+- **Maintainability**: AI engineers can tune prompts and system instructions without fear of breaking TypeScript business logic.
+- **Observability**: The AI Router automatically logs which version of a prompt was executed, making A/B testing and debugging easier.
+
+### How to Create a New Prompt
+1. Create a new module (e.g., `src/server/ai/prompts/email.ts`).
+2. Export `PROMPT_VERSION` (e.g., `"1.0.0"`).
+3. Export your `SYSTEM_INSTRUCTION` template.
+4. Export a typed builder function to assemble the prompt:
+   ```typescript
+   export interface EmailPromptParams { ... }
+   export function buildEmailPrompt(params: EmailPromptParams): string { ... }
+   ```
+5. Use these exports in your AI feature execution module, passing the final string and version to `aiRouter.generate()`.
+
+### Prompt Versioning
+Always increment `PROMPT_VERSION` using Semantic Versioning (SemVer) whenever you alter a `SYSTEM_INSTRUCTION` or prompt structure. The AI Router captures this version and logs it alongside the model used:
+```
+[AI]
+Feature: Email
+Model: gemini-2.5-flash
+Prompt: Email v1.0.0
+```
+
 ## 🚀 Quick Start
 
 ### Start Development

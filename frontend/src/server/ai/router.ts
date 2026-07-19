@@ -40,6 +40,7 @@ export class AIRouter {
     feature: AIFeature,
     prompt: string,
     systemInstruction: string,
+    promptVersion: string,
     userConfig?: AIModelsSettings,
     temperature: number = 0.7,
     responseSchema?: any
@@ -50,7 +51,15 @@ export class AIRouter {
     for (let i = 0; i < modelChain.length; i++) {
       const currentModel = modelChain[i];
       try {
-        console.log(`[AI_ROUTER] Feature: ${feature} | Attempting model: ${currentModel} (Attempt ${i + 1}/${modelChain.length})`);
+        console.log(`
+[AI_ROUTER_START]
+Feature: ${feature}
+Requested Model: ${modelChain[0]}
+Actual Model: ${currentModel}
+Prompt Version: v${promptVersion}
+Fallback Chain: ${modelChain.join(" -> ")}
+Retry Count: ${i}
+`);
         
         const response = await this.ai.models.generateContent({
           model: currentModel,
@@ -63,7 +72,7 @@ export class AIRouter {
           }
         });
 
-        console.log(`[AI_ROUTER] Success with ${currentModel}`);
+        console.log(`[AI_ROUTER_END] Final Status: SUCCESS (${currentModel})`);
         return response.text || "{}";
 
       } catch (error: any) {
@@ -97,7 +106,7 @@ export class AIRouter {
     }
 
     // If we exhaust the loop or break due to non-transient error:
-    console.error(`[AI_ROUTER] Inference failed across all available models.`);
+    console.error(`[AI_ROUTER_END] Final Status: FAILED (Exhausted all available models or structural error)`);
     throw lastError;
   }
 }
